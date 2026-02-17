@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
-namespace AuthServiceSistemaBancario.Api.Extensions;
+namespace AuthServiceYourVoice.Api.Extensions;
 
 public static class AuthenticationExtensions
 {
