@@ -1,5 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <ItemGroup>
+    <ProjectReference Include="..\AuthServiceYourVoice.Domain\AuthServiceYourVoice.Domain.csproj" />
+    <ProjectReference Include="..\AuthServiceYourVoice.Application\AuthServiceYourVoice.Application.csproj" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
