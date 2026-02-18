@@ -53,7 +53,7 @@ public static class DataSeeder
                     {
                         Id = profileId,
                         UserId = userId,
-                        ProfilePicture = string.Empty,
+                        ProfilePicture = "v1771312076/your_voice/profiles/default_tfg956.jpg",
                         Phone = string.Empty
                     },
                     UserEmail = new UserEmail

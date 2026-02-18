@@ -52,7 +52,7 @@ public class EmailService(IConfiguration configuration, ILogger<EmailService> lo
 
     public async Task SendWelcomeEmailAsync(string email, string username)
     {
-        var subject = "Welcome to AuthDotnet!";
+        var subject = "Welcome to Your Voice";
 
         var body = $@"
             <h2>Welcome to AuthDotnet, {username}!</h2>
@@ -60,6 +60,22 @@ public class EmailService(IConfiguration configuration, ILogger<EmailService> lo
             <p>You can now enjoy all the features of our platform.</p>
             <p>If you have any questions, feel free to contact our support team.</p>
             <p>Thank you for joining us!</p>
+        ";
+
+        await SendEmailAsync(email, subject, body);
+    }
+
+    public async Task SendTwoFactorCodeAsync(string email, string username, string code)
+    {
+        var subject = "Your Two-Factor Authentication Code";
+
+        var body = $@"
+            <h2>Two-Factor Authentication Code</h2>
+            <p>Hello {username},</p>
+            <p>Your two-factor authentication code is:</p>
+            <h1 style='color: #007bff;'>{code}</h1>
+            <p>This code will expire in 5 minutes.</p>
+            <p>If you didn't request this, please secure your account immediately.</p>
         ";
 
         await SendEmailAsync(email, subject, body);
