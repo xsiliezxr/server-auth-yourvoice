@@ -14,7 +14,7 @@ public class AuthController(IAuthService authService) : ControllerBase
 {
 
     [HttpGet("profile")]
-    [Authorize]
+    [Authorize(Policy = "FullyAuthenticated")]
     public async Task<ActionResult<object>> GetProfile()
     {
         var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
@@ -122,7 +122,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost("login-twofa")]
-    [Authorize]
+    [Authorize(Policy = "TwoFactorPending")]
     public async Task<ActionResult<AuthResponseDto>> VerifyTwoFactor([FromBody] VerifyTwoFactorDto verifyTwoFactorDto)
     {
 
