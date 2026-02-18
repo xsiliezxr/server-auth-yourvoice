@@ -13,6 +13,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<UserRole> UserRoles { get; set; }
     public DbSet<UserEmail> UserEmails { get; set; }
     public DbSet<UserPasswordReset> UserPasswordResets { get; set; }
+    public DbSet<UserSecurity> UserSecurities { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -162,6 +163,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(e => e.UserId)
                 .HasMaxLength(16);
             entity.Property(e => e.PasswordResetToken).HasMaxLength(256);
+        });
+
+        modelBuilder.Entity<UserSecurity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .HasMaxLength(16)
+                .ValueGeneratedOnAdd();
+            entity.Property(e => e.UserId)
+                .HasMaxLength(16);
+            entity.Property(e => e.IsTwoFactorEnabled).HasDefaultValue(false);
+            entity.Property(e => e.TwoFactorCode).HasMaxLength(256);
         });
     }
 

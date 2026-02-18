@@ -27,6 +27,15 @@ builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddApiDocumentation();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddRateLimitingPolicies();
+//  Politicas de autorización basadas en el claim "auth_level"
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("FullyAuthenticated", policy =>
+         policy.RequireClaim("auth_level", "fully_authenticated"));
+
+    options.AddPolicy("TwoFactorPending", policy =>
+        policy.RequireClaim("auth_level", "partial_2fa_pending", "fully_authenticated"));
+});
 
 var app = builder.Build();
 

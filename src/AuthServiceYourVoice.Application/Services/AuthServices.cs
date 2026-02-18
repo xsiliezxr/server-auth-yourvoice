@@ -123,6 +123,14 @@ public class AuthService(
                 PasswordResetToken = null,
                 PasswordResetTokenExpiry = null
             },
+            UserSecurity = new UserSecurity
+            {
+                Id = UuidGenerator.GenerateUserSecurityId(),
+                UserId = userId,
+                IsTwoFactorEnabled = false,
+                TwoFactorCode = null,
+                TwoFactorCodeExpiration = null
+            }
         };
 
         // Guardar usuario y entidades relacionadas
@@ -154,59 +162,6 @@ public class AuthService(
         };
     }
 
-    public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
-    {
-        // Buscar usuario por email o username
-        User? user = null;
-
-        if (loginDto.EmailOrUsername.Contains('@'))
-        {
-            // Es un email
-            user = await userRepository.GetByEmailAsync(loginDto.EmailOrUsername.ToLowerInvariant());
-        }
-        else
-        {
-            // Es un username
-            user = await userRepository.GetByUsernameAsync(loginDto.EmailOrUsername);
-        }
-
-        // Verificar si el usuario existe
-        if (user == null)
-        {
-            logger.LogFailedLoginAttempt();
-            throw new UnauthorizedAccessException("Invalid credentials");
-        }
-
-        // Verificar si el usuario está activo
-        if (!user.Status)
-        {
-            logger.LogFailedLoginAttempt();
-            throw new UnauthorizedAccessException("User account is disabled");
-        }
-
-        // Verificar contraseña
-        if (!passwordHashService.VerifyPassword(loginDto.Password, user.Password))
-        {
-            logger.LogFailedLoginAttempt();
-            throw new UnauthorizedAccessException("Invalid credentials");
-        }
-
-        logger.LogUserLoggedIn();
-
-        // Generar token JWT
-        var token = jwtTokenService.GenerateToken(user);
-        var expiryMinutes = int.Parse(configuration["JwtSettings:ExpiryInMinutes"] ?? "30");
-
-        // Crear respuesta compacta
-        return new AuthResponseDto
-        {
-            Success = true,
-            Message = "Login exitoso",
-            Token = token,
-            UserDetails = MapToUserDetailsDto(user),
-            ExpiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes)
-        };
-    }
 
     private UserResponseDto MapToUserResponseDto(User user)
     {
@@ -427,5 +382,155 @@ public class AuthService(
         }
 
         return MapToUserResponseDto(user);
+    }
+
+    public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
+    {
+        // Buscar usuario por email o username
+        User? user = null;
+
+        if (loginDto.EmailOrUsername.Contains('@'))
+        {
+            // Es un email
+            user = await userRepository.GetByEmailAsync(loginDto.EmailOrUsername.ToLowerInvariant());
+        }
+        else
+        {
+            // Es un username
+            user = await userRepository.GetByUsernameAsync(loginDto.EmailOrUsername);
+        }
+
+        // Verificar si el usuario existe
+        if (user == null)
+        {
+            logger.LogFailedLoginAttempt();
+            throw new UnauthorizedAccessException("Invalid credentials");
+        }
+
+        // Verificar si el usuario está activo
+        if (!user.Status)
+        {
+            logger.LogFailedLoginAttempt();
+            throw new UnauthorizedAccessException("User account is disabled");
+        }
+
+        // Verificar contraseña
+        if (!passwordHashService.VerifyPassword(loginDto.Password, user.Password))
+        {
+            logger.LogFailedLoginAttempt();
+            throw new UnauthorizedAccessException("Invalid credentials");
+        }
+
+        // Verificación 2FA
+        if (user.UserSecurity != null && user.UserSecurity.IsTwoFactorEnabled)
+        {
+            var twoFactorCode = TokenGeneratorService.GenerateTwoFactorCode();
+            // Hash del código 2FA antes de guardarlo
+            user.UserSecurity.TwoFactorCode = passwordHashService.HashPassword(twoFactorCode);
+            await userRepository.UpdateAsync(user);
+            try
+            {
+                await emailService.SendTwoFactorCodeAsync(user.Email, user.Username, twoFactorCode);
+                logger.LogInformation("2FA code sent correctly.");
+
+                var tempToken = jwtTokenService.GenerateTemporaryTwoFactorToken(user);
+
+                return new AuthResponseDto
+                {
+                    Success = true,
+                    Token = tempToken,
+                    Message = "2FA code sent. Please verify to complete login.",
+                    RequiresTwoFactor = true,
+                };
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to send 2FA code to {Email}", user.Email);
+                throw new BusinessException(ErrorCodes.TWO_FACTOR_CODE_ERROR, "Failed to send 2FA code");
+            }
+        }
+
+        logger.LogUserLoggedIn();
+
+        // Generar token JWT
+        var token = jwtTokenService.GenerateToken(user);
+        var expiryMinutes = int.Parse(configuration["JwtSettings:ExpiryInMinutes"] ?? "30");
+
+        // Crear respuesta compacta
+        return new AuthResponseDto
+        {
+            Success = true,
+            Message = "Login exitoso",
+            Token = token,
+            UserDetails = MapToUserDetailsDto(user),
+            ExpiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes)
+        };
+    }
+
+    public async Task<AuthResponseDto> VerifyTwoFactorAsync(string id, VerifyTwoFactorDto verifyTwoFactorDto)
+    {
+        var user = await userRepository.GetByIdAsync(id);
+
+        if (user == null) throw new UnauthorizedAccessException("failed 2FA verification");
+
+        var security = user.UserSecurity;
+
+        if (security == null || !security.IsTwoFactorEnabled || string.IsNullOrEmpty(security.TwoFactorCode)) throw new UnauthorizedAccessException("2FA not enabled for this user");
+
+        if (security.TwoFactorCodeExpiration < DateTime.UtcNow) throw new UnauthorizedAccessException("2FA code expired");
+
+        bool isCodeValid = passwordHashService.VerifyPassword(verifyTwoFactorDto.TwoFactorCode, security.TwoFactorCode);
+
+        if (!isCodeValid)
+        {
+            logger.LogWarning($"Invalid 2FA code attempt for user {user.Username}");
+            throw new UnauthorizedAccessException("Invalid 2FA code");
+        }
+
+        // Limpiar
+        security.TwoFactorCode = null;
+        security.TwoFactorCodeExpiration = null;
+        await userRepository.UpdateAsync(user);
+
+        var token = jwtTokenService.GenerateToken(user);
+        var expiryMinutes = int.Parse(configuration["JwtSettings:ExpiryInMinutes"] ?? "30");
+
+
+        return new AuthResponseDto
+        {
+            Success = true,
+            Message = "2FA verification successful",
+            Token = token,
+            UserDetails = MapToUserDetailsDto(user),
+            RequiresTwoFactor = false,
+        };
+    }
+
+    public async Task<AuthResponseDto> ChangeTwoFactorStatusByIdAsync(string userId, ChangeTwoFactorDto changeTwoFactorDto)
+    {
+        var user = await userRepository.GetByIdAsync(userId);
+
+        if (user == null) throw new UnauthorizedAccessException("User not found");
+
+        if (user.UserSecurity == null) throw new InvalidOperationException("UserSecurity entity is missing for this user");
+
+
+        user.UserSecurity.IsTwoFactorEnabled = changeTwoFactorDto.EnableTwoFactor;
+        
+        // Limpiar pendientes si desactiva
+        if (!changeTwoFactorDto.EnableTwoFactor)
+        {
+            user.UserSecurity.TwoFactorCode = null;
+            user.UserSecurity.TwoFactorCodeExpiration = null;
+        }
+
+
+        await userRepository.UpdateAsync(user);
+        return new AuthResponseDto
+        {
+            Success = true,
+            Message = $"Two-factor authentication {(changeTwoFactorDto.EnableTwoFactor ? "enabled" : "disabled")} successfully",
+        };
+
     }
 }

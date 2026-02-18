@@ -15,6 +15,7 @@ public class UserRepository(ApplicationDbContext context) : IUserRepository
             .Include(u => u.UserProfile)
             .Include(u => u.UserEmail)
             .Include(u => u.UserPasswordReset)
+            .Include(u => u.UserSecurity)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == id);
@@ -24,9 +25,11 @@ public class UserRepository(ApplicationDbContext context) : IUserRepository
     public async Task<User?> GetByEmailAsync(string email)
     {
         return await context.Users
+            .Include(u => u.UserSecurity)
             .Include(u => u.UserProfile)
             .Include(u => u.UserEmail)
             .Include(u => u.UserPasswordReset)
+            .Include(u => u.UserSecurity)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => EF.Functions.ILike(u.Email, email));
@@ -38,6 +41,7 @@ public class UserRepository(ApplicationDbContext context) : IUserRepository
             .Include(u => u.UserProfile)
             .Include(u => u.UserEmail)
             .Include(u => u.UserPasswordReset)
+            .Include(u => u.UserSecurity)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => EF.Functions.ILike(u.Username, username));
@@ -49,6 +53,7 @@ public class UserRepository(ApplicationDbContext context) : IUserRepository
             .Include(u => u.UserProfile)
             .Include(u => u.UserEmail)
             .Include(u => u.UserPasswordReset)
+            .Include(u => u.UserSecurity)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserEmail != null &&
@@ -62,6 +67,7 @@ public class UserRepository(ApplicationDbContext context) : IUserRepository
             .Include(u => u.UserProfile)
             .Include(u => u.UserEmail)
             .Include(u => u.UserPasswordReset)
+            .Include(u => u.UserSecurity)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserPasswordReset != null &&

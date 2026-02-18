@@ -27,6 +27,11 @@ public static class UuidGenerator
         return $"usr_{GenerateShortUUID()}";
     }
 
+    public static string GenerateUserSecurityId()
+    {
+        return $"use_{GenerateShortUUID()}";
+    }
+
     public static string GenerateRoleId()
     {
         return $"rol_{GenerateShortUUID()}";

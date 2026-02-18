@@ -12,8 +12,9 @@ namespace AuthServiceYourVoice.Api.Controllers;
 [Route("api/v1/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
+
     [HttpGet("profile")]
-    [Authorize]
+    [Authorize(Policy = "FullyAuthenticated")]
     public async Task<ActionResult<object>> GetProfile()
     {
         var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
@@ -49,6 +50,17 @@ public class AuthController(IAuthService authService) : ControllerBase
     public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto loginDto)
     {
         var result = await authService.LoginAsync(loginDto);
+
+        if (result.RequiresTwoFactor)
+        {
+            return Accepted(new
+            {
+                success = true,
+                token_temp = result.Token,
+                message = "Se requiere autenticación de dos factores",
+            });
+        }
+
         return Ok(result);
     }
 
@@ -106,6 +118,52 @@ public class AuthController(IAuthService authService) : ControllerBase
     public async Task<ActionResult<EmailResponseDto>> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
     {
         var result = await authService.ResetPasswordAsync(resetPasswordDto);
+        return Ok(result);
+    }
+
+    [HttpPost("login-twofa")]
+    [Authorize(Policy = "TwoFactorPending")]
+    public async Task<ActionResult<AuthResponseDto>> VerifyTwoFactor([FromBody] VerifyTwoFactorDto verifyTwoFactorDto)
+    {
+
+        var type = User.FindFirst("token_type")?.Value;
+        if (type != "pre_auth_2fa") return Unauthorized("Invalid token type");
+
+        var userId = User.FindFirst("sub")?.Value ??
+                     User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new AuthResponseDto
+            {
+                Success = false,
+                Message = "Not authenticated"
+            });
+        }
+
+        var result = await authService.VerifyTwoFactorAsync(userId, verifyTwoFactorDto);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("change-twofa-status")]
+    public async Task<ActionResult<AuthResponseDto>> ChangeTwoFactor([FromBody] ChangeTwoFactorDto changeTwoFactorDto)
+    {
+        var userId = User.FindFirst("sub")?.Value ??
+                     User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new AuthResponseDto
+            {
+                Success = false,
+                Message = "Not authenticated"
+            });
+        }
+
+        Console.WriteLine($"User {userId} is changing 2FA status to: {changeTwoFactorDto.EnableTwoFactor}");
+
+        var result = await authService.ChangeTwoFactorStatusByIdAsync(userId, changeTwoFactorDto);
         return Ok(result);
     }
 }

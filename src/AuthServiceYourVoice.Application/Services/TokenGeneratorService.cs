@@ -21,4 +21,12 @@ public static class TokenGeneratorService
         rng.GetBytes(bytes);
         return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").Replace("=", "");
     }
+
+    public static string GenerateTwoFactorCode()
+    {
+        using var rng = RandomNumberGenerator.Create();
+        var bytes = new byte[4];
+        rng.GetBytes(bytes);
+        return BitConverter.ToString(bytes).Replace("-", "").Substring(0, 8);
+    }
 }
