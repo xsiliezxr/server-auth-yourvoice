@@ -145,7 +145,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         return Ok(result);
     }
 
-    [Authorize]
+    [Authorize(Policy = "FullyAuthenticated")]
     [HttpPost("change-twofa-status")]
     public async Task<ActionResult<AuthResponseDto>> ChangeTwoFactor([FromBody] ChangeTwoFactorDto changeTwoFactorDto)
     {
