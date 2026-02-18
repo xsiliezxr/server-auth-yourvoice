@@ -433,12 +433,14 @@ public class AuthService(
                 await emailService.SendTwoFactorCodeAsync(user.Email, user.Username, twoFactorCode);
                 logger.LogInformation("2FA code sent correctly.");
 
+                var tempToken = jwtTokenService.GenerateTemporaryTwoFactorToken(user);
+
                 return new AuthResponseDto
                 {
                     Success = true,
+                    Token = tempToken,
                     Message = "2FA code sent. Please verify to complete login.",
                     RequiresTwoFactor = true,
-                    UserDetails = MapToUserDetailsDto(user)
                 };
             }
             catch (Exception ex)
@@ -465,9 +467,9 @@ public class AuthService(
         };
     }
 
-    public async Task<AuthResponseDto> VerifyTwoFactorAsync(VerifyTwoFactorDto verifyTwoFactorDto)
+    public async Task<AuthResponseDto> VerifyTwoFactorAsync(string id, VerifyTwoFactorDto verifyTwoFactorDto)
     {
-        var user = await userRepository.GetByEmailAsync(verifyTwoFactorDto.EmailOrUsername.ToLowerInvariant());
+        var user = await userRepository.GetByIdAsync(id);
 
         if (user == null) throw new UnauthorizedAccessException("failed 2FA verification");
 

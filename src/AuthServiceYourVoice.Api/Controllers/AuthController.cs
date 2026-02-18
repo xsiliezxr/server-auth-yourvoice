@@ -56,6 +56,7 @@ public class AuthController(IAuthService authService) : ControllerBase
             return Accepted(new
             {
                 success = true,
+                token_temp = result.Token,
                 message = "Se requiere autenticación de dos factores",
             });
         }
@@ -121,10 +122,26 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost("login-twofa")]
-    [AllowAnonymous]
+    [Authorize]
     public async Task<ActionResult<AuthResponseDto>> VerifyTwoFactor([FromBody] VerifyTwoFactorDto verifyTwoFactorDto)
     {
-        var result = await authService.VerifyTwoFactorAsync(verifyTwoFactorDto);
+
+        var type = User.FindFirst("token_type")?.Value;
+        if (type != "pre_auth_2fa") return Unauthorized("Invalid token type");
+
+        var userId = User.FindFirst("sub")?.Value ??
+                     User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new AuthResponseDto
+            {
+                Success = false,
+                Message = "Not authenticated"
+            });
+        }
+
+        var result = await authService.VerifyTwoFactorAsync(userId, verifyTwoFactorDto);
         return Ok(result);
     }
 

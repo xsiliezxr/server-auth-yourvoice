@@ -41,4 +41,35 @@ public class JwtTokenService(IConfiguration configuration) : IJwtTokenService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    public string GenerateTemporaryTwoFactorToken(User user)
+    {
+
+        var jwtSettings = configuration.GetSection("JwtSettings");
+        var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
+        var issuer = jwtSettings["Issuer"] ?? "AuthDotnet";
+        var audience = jwtSettings["Audience"] ?? "AuthDotnet";
+        var expiryInMinutes = int.Parse(jwtSettings["ExpiryInMinutes"] ?? "5");
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+
+        var claims = new[]
+        {
+           new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+           new Claim(ClaimTypes.NameIdentifier, user.Id),
+           new Claim("token_type", "pre_auth_2fa")
+        };
+
+        var token = new JwtSecurityToken(
+           issuer: issuer,
+           audience: audience,
+           claims: claims,
+           expires: DateTime.UtcNow.AddMinutes(expiryInMinutes),
+           signingCredentials: credentials
+       );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
 }

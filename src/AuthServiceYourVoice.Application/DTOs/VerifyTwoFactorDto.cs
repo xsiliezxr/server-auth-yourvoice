@@ -3,9 +3,7 @@ namespace AuthServiceYourVoice.Application.DTOs;
 
 public class VerifyTwoFactorDto
 {
-    [Required]
-    public string EmailOrUsername { get; set; } = string.Empty;
-    
+
     [Required]
     [StringLength(8, MinimumLength = 8, ErrorMessage = "The code must be exactly 8 characters long.")]
     public string TwoFactorCode { get; set; } = string.Empty;
