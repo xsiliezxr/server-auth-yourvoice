@@ -54,4 +54,27 @@ public class UsersController(IUserManagementService userManagementService) : Con
         var users = await userManagementService.GetUsersByRoleAsync(roleName);
         return Ok(users);
     }
+
+    
+    // Enpoint para poder cambiar de contraseña estando autenticado
+    [HttpPatch("{userId}/password")]
+    [Authorize]
+    [EnableRateLimiting("ApiPolicy")]
+    public async Task<ActionResult> ChangePassword(string userId, [FromBody] ChangePasswordDto dto)
+    {
+        var currentUserId = User.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+        if (currentUserId != userId)
+        {
+            return StatusCode(403, new { success = false, message = "Forbidden" });
+        }
+
+        var result = await userManagementService.ChangePasswordAsync(userId, dto.OldPassword, dto.NewPassword);
+        if (!result)
+        {
+            return BadRequest(new { success = false, message = "Old password is incorrect" });
+        }
+
+        return Ok(new { success = true, message = "Password changed successfully" });
+    }
+
 }

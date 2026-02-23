@@ -128,4 +128,17 @@ public class UserRepository(ApplicationDbContext context) : IUserRepository
         context.UserRoles.Add(newUserRole);
         await context.SaveChangesAsync();
     }
+
+    public async Task<bool> UpdatePasswordAsync(string userId, string newPassword)
+    {
+        var user = await GetByIdAsync(userId);
+        if (user == null) return false;
+
+        user.Password = newPassword; 
+        user.UpdatedAt = DateTime.UtcNow;
+
+        context.Users.Update(user);
+        await context.SaveChangesAsync();
+        return true;
+    }
 }

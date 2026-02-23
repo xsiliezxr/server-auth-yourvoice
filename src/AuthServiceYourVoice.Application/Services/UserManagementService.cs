@@ -3,10 +3,11 @@ using AuthServiceYourVoice.Application.Interfaces;
 using AuthServiceYourVoice.Domain.Constants;
 using AuthServiceYourVoice.Domain.Entities;
 using AuthServiceYourVoice.Domain.Interfaces;
+using CloudinaryDotNet.Core;
 
 namespace AuthServiceYourVoice.Application.Services;
 
-public class UserManagementService(IUserRepository users, IRoleRepository roles, ICloudinaryService cloudinary) : IUserManagementService
+public class UserManagementService(IUserRepository users, IRoleRepository roles, ICloudinaryService cloudinary, IPasswordHashService passwordHashService) : IUserManagementService
 {
     public async Task<UserResponseDto> UpdateUserRoleAsync(string userId, string roleName)
     {
@@ -86,5 +87,22 @@ public class UserManagementService(IUserRepository users, IRoleRepository roles,
             CreatedAt = u.CreatedAt,
             UpdatedAt = u.UpdatedAt
         }).ToList();
+    }
+
+    public async Task<bool> ChangePasswordAsync(string userId, string oldPassword, string newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) throw new ArgumentException("Invalid userId", nameof(userId));
+        if (string.IsNullOrWhiteSpace(oldPassword)) throw new ArgumentException("Old password is required", nameof(oldPassword));
+        if (string.IsNullOrWhiteSpace(newPassword)) throw new ArgumentException("New password is required", nameof(newPassword));
+
+        var user = await users.GetByIdAsync(userId) ?? throw new InvalidOperationException("User not found");
+
+        // Verify old password
+        var isOldPasswordValid = passwordHashService.VerifyPassword(oldPassword, user.Password);
+        if (!isOldPasswordValid) return false;
+
+        // Update to new password
+        await users.UpdatePasswordAsync(userId, passwordHashService.HashPassword(newPassword));
+        return true;
     }
 }
